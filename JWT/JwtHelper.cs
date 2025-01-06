@@ -5,21 +5,32 @@ using System.Text;
 
 namespace JWT
 {
-    public class JwtHelper
+    public class JwtService
     {
-        public static string GenerateJwt(string email, string secretKey)
+        private readonly string _key;
+
+        public JwtService(string key)
         {
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            _key = key;
+        }
 
-            var token = new JwtSecurityToken(
-                issuer: "myapp",
-                audience: "myapp",
-                claims: new List<Claim> { new Claim(ClaimTypes.Email, email) },
-                expires: DateTime.Now.AddHours(1),
-                signingCredentials: creds);
+        public string GenerateToken(string email)
+        {
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var key = Encoding.UTF8.GetBytes(_key);
 
-            return new JwtSecurityTokenHandler().WriteToken(token);
+            var tokenDescriptor = new SecurityTokenDescriptor
+            {
+                Subject = new ClaimsIdentity(new Claim[]
+                {
+                    new Claim(ClaimTypes.Email, email)
+                }),
+                Expires = DateTime.UtcNow.AddHours(1),
+                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+            };
+
+            var token = tokenHandler.CreateToken(tokenDescriptor);
+            return tokenHandler.WriteToken(token);
         }
     }
 }

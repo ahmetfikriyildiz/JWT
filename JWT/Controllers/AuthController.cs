@@ -5,32 +5,39 @@ using static JWT.Data.JwtDb;
 
 namespace JWT.Controllers
 {
-    [Route("api/[controller]")]
     [ApiController]
+    [Route("api/[controller]")]
     public class AuthController : ControllerBase
     {
         private readonly AppDbContext _context;
-        private readonly IConfiguration _configuration;
+        private readonly JwtService _jwtService;
 
-        public AuthController(AppDbContext context, IConfiguration configuration)
+        public AuthController(AppDbContext context, IConfiguration config)
         {
             _context = context;
-            _configuration = configuration;
+            _jwtService = new JwtService(config["Jwt:Key"]);
         }
 
         [HttpPost("login")]
         public IActionResult Login([FromBody] User user)
         {
-            var existingUser = _context.Users.SingleOrDefault(u => u.Email == user.Email);
+            var dbUser = _context.Users.FirstOrDefault(u => u.Email == user.Email && u.Password == user.Password);
+            if (dbUser == null)
+                return Unauthorized("Invalid credentials");
 
-            if (existingUser == null || existingUser.Password != user.Password)
-            {
-                return Unauthorized(new { message = "Invalid email or password" });
-            }
+            var token = _jwtService.GenerateToken(user.Email);
+            return Ok(new { Token = token });
+        }
 
-            var token = JwtHelper.GenerateJwt(user.Email, _configuration["Jwt:Key"]);
+        [HttpPost("register")]
+        public IActionResult Register([FromBody] User user)
+        {
+            if (_context.Users.Any(u => u.Email == user.Email))
+                return BadRequest("Email already exists");
 
-            return Ok(new { token });
+            _context.Users.Add(user);
+           
+            return Ok("User registered");
         }
     }
 }
